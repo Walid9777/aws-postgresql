@@ -2,66 +2,74 @@ provider "aws" {
   region = "eu-west-1"
 }
 
-locals {
-  vpc_cidr_block = "10.0.0.0/16"
-}
 
-resource "aws_vpc" "postgres_vpc" {
-  cidr_block = local.vpc_cidr_block
+
+resource "aws_vpc" "example" {
+  cidr_block = "10.0.0.0/16"
+
   tags = {
-    Name = "postgres-vpc"
+    Name = "example-vpc"
   }
 }
 
-resource "aws_subnet" "postgres_subnet_1" {
+resource "aws_subnet" "example_subnet_a" {
   cidr_block = "10.0.1.0/24"
-  vpc_id     = aws_vpc.postgres_vpc.id
+  vpc_id     = aws_vpc.example.id
+  availability_zone = "eu-west-1a"
+
   tags = {
-    Name = "postgres-subnet-1"
+    Name = "example-subnet-a"
   }
 }
 
-resource "aws_subnet" "postgres_subnet_2" {
+resource "aws_subnet" "example_subnet_b" {
   cidr_block = "10.0.2.0/24"
-  vpc_id     = aws_vpc.postgres_vpc.id
+  vpc_id     = aws_vpc.example.id
+  availability_zone = "eu-west-1b"
+
   tags = {
-    Name = "postgres-subnet-2"
+    Name = "example-subnet-b"
   }
 }
 
-resource "aws_security_group" "postgres_sg" {
-  name        = "postgres-sg"
-  description = "PostgreSQL database security group"
-  vpc_id      = aws_vpc.postgres_vpc.id
-}
-
-resource "aws_db_subnet_group" "postgres_subnet_group" {
+resource "aws_db_subnet_group" "example" {
   name       = "postgres-subnet-group"
-  subnet_ids = [aws_subnet.postgres_subnet_1.id, aws_subnet.postgres_subnet_2.id]
+  subnet_ids = [aws_subnet.example_subnet_a.id, aws_subnet.example_subnet_b.id]
 
   tags = {
-    Name = "postgres-db-subnet-group"
+    Name = "example-db-subnet-group"
   }
 }
 
-resource "aws_db_instance" "postgres_instance" {
-  identifier           = "postgres-instance"
+resource "aws_security_group" "example" {
+  name        = "example"
+  description = "Example security group for RDS"
+  vpc_id      = aws_vpc.example.id
+}
+
+resource "aws_security_group_rule" "example" {
+  security_group_id = aws_security_group.example.id
+
+  type        = "ingress"
+  from_port   = 5432
+  to_port     = 5432
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
+resource "aws_db_instance" "example" {
   allocated_storage    = 20
+  storage_type         = "gp2"
   engine               = "postgres"
   engine_version       = "13.3"
   instance_class       = "db.t3.micro"
-  name                 = "mypgdb"
-  username             = "postgres"
-  password             = "supersecretpassword"
-  db_subnet_group_name = aws_db_subnet_group.postgres_subnet_group.name
+  name                 = "example"
+  username             = "example123"
+  password             = "example12345"
+  parameter_group_name = "default.postgres13"
+  db_subnet_group_name = aws_db_subnet_group.example.name
 
-  vpc_security_group_ids = [aws_security_group.postgres_sg.id]
+  vpc_security_group_ids = [aws_security_group.example.id]
 
-  backup_retention_period = 7
-  backup_window           = "07:00-09:00"
-  maintenance_window      = "Mon:09:00-Mon:11:00"
-
-  tags = {
-    Name = "postgres-instance"
-  }
+  skip_final_snapshot = true
 }
